@@ -40,6 +40,10 @@ class SQLAlchemyProfileRepository(ProfileRepository):
             return None
         return UserProfile.model_validate(row, from_attributes=True)
 
+    async def list_users(self) -> list[UserProfile]:
+        rows = (await self._session.execute(select(UserProfileModel))).scalars().all()
+        return [UserProfile.model_validate(row, from_attributes=True) for row in rows]
+
     async def get_risk_profile(self, user_id: int) -> RiskProfile | None:
         q = select(RiskProfileModel).where(RiskProfileModel.user_id == user_id)
         row = (await self._session.execute(q)).scalar_one_or_none()

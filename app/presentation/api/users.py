@@ -12,9 +12,16 @@ from app.presentation.schemas.users import (
     RiskProfileResponse,
     UpsertPortfolioRequest,
     UserResponse,
+    UsersResponse,
 )
 
 router = APIRouter(prefix="/api/users", tags=["users"])
+
+
+@router.get("", response_model=UsersResponse)
+async def list_users(c=Depends(get_request_container)) -> UsersResponse:
+    users = await c.onboard.profile_repo.list_users()
+    return UsersResponse(users=users)
 
 
 @router.post("", response_model=UserResponse)

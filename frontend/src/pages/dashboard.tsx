@@ -1,35 +1,17 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, PieChart, Pie, Cell } from "recharts";
-
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import {
   createConversation,
   createUser,
   getRecommendations,
+  getUsers,
   openReasoningStream,
   sendMessage,
   updateProfile,
 } from "../lib/api";
 import type { ReasoningStep } from "../types/api";
-
-const allocationData = [
-  { name: "Stocks", value: 58 },
-  { name: "Bonds", value: 25 },
-  { name: "Cash", value: 10 },
-  { name: "Alternatives", value: 7 },
-];
-
-const sparkData = [
-  { day: "Mon", value: 100 },
-  { day: "Tue", value: 102 },
-  { day: "Wed", value: 101 },
-  { day: "Thu", value: 105 },
-  { day: "Fri", value: 108 },
-];
-
-const colors = ["#0f82c0", "#ff9d2f", "#4ea06f", "#9aa6b2"];
 
 interface Props {
   userId: number | null;
@@ -42,6 +24,22 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
   const [question, setQuestion] = useState("Оцени Apple для моего портфеля");
   const [steps, setSteps] = useState<ReasoningStep[]>([]);
   const [streamError, setStreamError] = useState<string | null>(null);
+  const [selectedExistingUserId, setSelectedExistingUserId] = useState<string>("");
+
+  const usersQuery = useQuery({
+    queryKey: ["users"],
+    queryFn: getUsers,
+  });
+
+  const selectMutation = useMutation({
+    mutationFn: async (existingUserId: number) => {
+      const conversation = await createConversation(existingUserId, "Main dialog");
+      return { userId: existingUserId, conversationId: conversation.conversation.id as number };
+    },
+    onSuccess: (result) => {
+      onSessionCreated(result.userId, result.conversationId);
+    },
+  });
 
   const setupMutation = useMutation({
     mutationFn: async () => {
@@ -136,6 +134,33 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
             <CardTitle>Session Setup</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {usersQuery.data?.users && usersQuery.data.users.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Select existing user</p>
+                <div className="flex gap-2">
+                  <select
+                    className="flex-1 rounded-md border border-border bg-white px-3 py-2 text-sm"
+                    value={selectedExistingUserId}
+                    onChange={(e) => setSelectedExistingUserId(e.target.value)}
+                  >
+                    <option value="">-- choose user --</option>
+                    {usersQuery.data.users.map((u) => (
+                      <option key={u.id} value={String(u.id)}>
+                        {u.email} (ID: {u.id})
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    onClick={() => selectMutation.mutate(Number(selectedExistingUserId))}
+                    disabled={!selectedExistingUserId || selectMutation.isPending}
+                  >
+                    {selectMutation.isPending ? "Loading..." : "Use"}
+                  </Button>
+                </div>
+                <hr className="border-border" />
+              </div>
+            )}
+            <p className="text-xs font-medium text-muted-foreground">Or create new user</p>
             <input
               className="w-full rounded-md border border-border bg-white px-3 py-2"
               value={email}
@@ -168,8 +193,8 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
         </Card>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+      <section>
+        <Card>
           <CardHeader>
             <CardTitle>Chain of Thought Stream</CardTitle>
           </CardHeader>
@@ -189,43 +214,9 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Allocation Snapshot</CardTitle>
-          </CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={allocationData} dataKey="value" nameKey="name" outerRadius={90}>
-                  {allocationData.map((entry, index) => (
-                    <Cell key={entry.name} fill={colors[index % colors.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
       </section>
 
-      <section className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Price Trend</CardTitle>
-          </CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={sparkData}>
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="value" stroke="#0f82c0" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
+      <section>
         <Card>
           <CardHeader>
             <CardTitle>Latest Recommendation</CardTitle>

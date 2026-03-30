@@ -22,6 +22,10 @@ class ProfileRepository(ABC):
         ...
 
     @abstractmethod
+    async def list_users(self) -> list[UserProfile]:
+        ...
+
+    @abstractmethod
     async def get_risk_profile(self, user_id: int) -> RiskProfile | None:
         ...
 

@@ -22,6 +22,11 @@ async function handleResponse<T>(res: Response): Promise<T> {
 
 // ── Users ────────────────────────────────────────────────────────────────────
 
+export async function getUsers() {
+  const res = await fetch(`${API_BASE}/api/users`);
+  return handleResponse<{ users: UserProfile[] }>(res);
+}
+
 export async function createUser(email: string, telegram_id?: string) {
   const res = await fetch(`${API_BASE}/api/users`, {
     method: "POST",

@@ -15,6 +15,10 @@ class UserResponse(BaseModel):
     user: UserProfile
 
 
+class UsersResponse(BaseModel):
+    users: list[UserProfile]
+
+
 class BuildRiskProfileRequest(BaseModel):
     answers: dict[str, str] = Field(description="Raw free-text answers for 6 onboarding questions")
 
