@@ -10,7 +10,7 @@ import {
   getRecommendations,
   openReasoningStream,
   sendMessage,
-  upsertRiskProfile,
+  updateProfile,
 } from "../lib/api";
 import type { ReasoningStep } from "../types/api";
 
@@ -31,24 +31,36 @@ const sparkData = [
 
 const colors = ["#0f82c0", "#ff9d2f", "#4ea06f", "#9aa6b2"];
 
-export function Dashboard() {
+interface Props {
+  userId: number | null;
+  conversationId: number | null;
+  onSessionCreated: (userId: number, conversationId: number) => void;
+}
+
+export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
   const [email, setEmail] = useState("investor@example.com");
   const [question, setQuestion] = useState("Оцени Apple для моего портфеля");
-  const [userId, setUserId] = useState<number | null>(null);
-  const [conversationId, setConversationId] = useState<number | null>(null);
   const [steps, setSteps] = useState<ReasoningStep[]>([]);
   const [streamError, setStreamError] = useState<string | null>(null);
 
   const setupMutation = useMutation({
     mutationFn: async () => {
       const user = await createUser(email);
-      await upsertRiskProfile(user.user.id);
-      const conversation = await createConversation(user.user.id, "Main dialog");
+      await updateProfile(user.user.id!, {
+        investment_horizon: "LONG",
+        risk_tolerance: "MODERATE",
+        investment_goal: "GROWTH",
+        monthly_contribution_usd: 1000,
+        excluded_sectors: [],
+        preferred_geography: "US",
+        risk_score: 6,
+        recommended_allocation: { equities: 60, bonds: 30, cash: 10 },
+      });
+      const conversation = await createConversation(user.user.id!, "Main dialog");
       return { userId: user.user.id as number, conversationId: conversation.conversation.id as number };
     },
     onSuccess: (result) => {
-      setUserId(result.userId);
-      setConversationId(result.conversationId);
+      onSessionCreated(result.userId, result.conversationId);
     },
   });
 
