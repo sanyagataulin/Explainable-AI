@@ -66,18 +66,43 @@ export function Dashboard() {
       setSteps([]);
       setStreamError(null);
       await sendMessage(conversationId, userId, question);
-      const source = openReasoningStream(conversationId, userId, question);
-      source.addEventListener("reasoning_step", (event) => {
-        const payload = JSON.parse((event as MessageEvent).data) as ReasoningStep;
-        setSteps((prev) => [...prev, payload]);
+      await new Promise<void>((resolve, reject) => {
+        const source = openReasoningStream(conversationId, userId, question);
+        const timeoutId = window.setTimeout(() => {
+          setStreamError("Streaming timeout");
+          source.close();
+          reject(new Error("Streaming timeout"));
+        }, 60000);
+
+        const closeStream = () => {
+          window.clearTimeout(timeoutId);
+          source.close();
+        };
+
+        source.addEventListener("reasoning_step", (event) => {
+          const payload = JSON.parse((event as MessageEvent).data) as ReasoningStep;
+          setSteps((prev) => [...prev, payload]);
+        });
+
+        source.addEventListener("stream_error", (event) => {
+          const payload = JSON.parse((event as MessageEvent).data) as { message?: string };
+          setStreamError(payload.message ?? "Streaming failed");
+          closeStream();
+          reject(new Error(payload.message ?? "Streaming failed"));
+        });
+
+        source.addEventListener("recommendation_saved", () => {
+          closeStream();
+          void recommendationsQuery.refetch();
+          resolve();
+        });
+
+        source.onerror = () => {
+          setStreamError("Streaming connection error");
+          closeStream();
+          reject(new Error("Streaming connection error"));
+        };
       });
-      source.addEventListener("stream_error", (event) => {
-        const payload = JSON.parse((event as MessageEvent).data) as { message?: string };
-        setStreamError(payload.message ?? "Streaming failed");
-        source.close();
-      });
-      source.onerror = () => source.close();
-      setTimeout(() => source.close(), 16000);
     },
   });
 

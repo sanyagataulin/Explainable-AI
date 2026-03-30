@@ -68,26 +68,37 @@ async def stream_reasoning(conversation_id: int, user_id: int, question: str, c=
         if any(tok.isupper() and tok.isalpha() and len(tok) <= 5 for tok in question.split()):
             ticker = next(tok for tok in question.split() if tok.isupper() and tok.isalpha() and len(tok) <= 5)
 
-        generated = await c.llm_gateway.synthesize_recommendation(
-            risk_profile=profile,
-            ticker=ticker,
-            company_name=ticker,
-            steps=[step.model_dump(mode="json") for step in all_steps],
-        )
-        recommendation = Recommendation(
-            conversation_id=conversation_id,
-            user_id=user_id,
-            ticker=ticker,
-            company_name=ticker,
-            action=generated.action,
-            conviction=generated.conviction,
-            suggested_weight_pct=generated.suggested_weight_pct,
-            reasoning_steps=all_steps,
-            risks=generated.risks,
-            alternatives=generated.alternatives,
-            time_horizon=generated.time_horizon,
-        )
-        saved = await c.generate_recommendation.save_result(recommendation)
+        try:
+            generated = await c.llm_gateway.synthesize_recommendation(
+                risk_profile=profile,
+                ticker=ticker,
+                company_name=ticker,
+                steps=[step.model_dump(mode="json") for step in all_steps],
+            )
+            recommendation = Recommendation(
+                conversation_id=conversation_id,
+                user_id=user_id,
+                ticker=ticker,
+                company_name=ticker,
+                action=generated.action,
+                conviction=generated.conviction,
+                suggested_weight_pct=generated.suggested_weight_pct,
+                reasoning_steps=all_steps,
+                risks=generated.risks,
+                alternatives=generated.alternatives,
+                time_horizon=generated.time_horizon,
+            )
+            saved = await c.generate_recommendation.save_result(recommendation)
+        except Exception as exc:
+            log.exception("recommendation_synthesis_failed", error=str(exc))
+            yield {
+                "event": "stream_error",
+                "data": json.dumps(
+                    {"message": "Failed to synthesize or save recommendation"},
+                    ensure_ascii=False,
+                ),
+            }
+            return
         log.info("recommendation_saved", recommendation_id=saved.id)
         yield {
             "event": "recommendation_saved",

@@ -5,6 +5,7 @@ from typing import TypedDict
 
 import structlog
 from langgraph.graph import END, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 
 from app.application.ports.gateways import LLMGateway, NewsGateway
 from app.core.settings import Settings
@@ -44,7 +45,7 @@ class RecommendationGraphEngine:
         self._graph = self._build_graph(full=True)
         self._short_graph = self._build_graph(full=False)
 
-    def _build_graph(self, full: bool) -> StateGraph:
+    def _build_graph(self, full: bool) -> CompiledStateGraph:
         graph = StateGraph(GraphState)
         if full:
             graph.add_node("macro", self._macro_node)
@@ -161,9 +162,8 @@ class RecommendationGraphEngine:
 
         runnable = self._graph
         previous = 0
-        async for event in runnable.astream(state):
-            final_state = event
-            steps = final_state["steps"]
+        async for event in runnable.astream(state, stream_mode="values"):
+            steps = event.get("steps", [])
             if len(steps) > previous:
                 yield steps[-1]
                 previous = len(steps)
@@ -192,8 +192,8 @@ class RecommendationGraphEngine:
             "metrics": {},
         }
         previous = 0
-        async for event in self._short_graph.astream(state):
-            steps = event["steps"]
+        async for event in self._short_graph.astream(state, stream_mode="values"):
+            steps = event.get("steps", [])
             if len(steps) > previous:
                 yield steps[-1]
                 previous = len(steps)
