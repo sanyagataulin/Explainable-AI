@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(default="")
     openai_model: str = Field(default="gpt-4o")
     openai_embedding_model: str = Field(default="text-embedding-3-small")
+    max_embedding_tokens_per_request: int = Field(default=250000)
+    max_embedding_docs_per_batch: int = Field(default=128)
 
     database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:5432/investments")
     redis_url: str = Field(default="redis://localhost:6379/0")

@@ -4,19 +4,15 @@ import json
 from typing import Any, cast
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 
 from app.application.ports.gateways import EmbeddingGateway, LLMGateway
 from app.core.settings import Settings
 from app.domain.entities.enums import (
     ConvictionLevel,
-    InvestmentGoal,
-    InvestmentHorizon,
-    PreferredGeography,
     RecommendationAction,
-    RiskTolerance,
 )
-from app.domain.entities.models import Recommendation, RiskProfile
+from app.domain.entities.models import PartialRiskProfilePatch, Recommendation, RiskProfile
 
 
 class RecommendationSynthesisResult(BaseModel):
@@ -30,35 +26,33 @@ class RecommendationSynthesisResult(BaseModel):
 
 class OpenAIGateway(LLMGateway, EmbeddingGateway):
     def __init__(self, settings: Settings) -> None:
-        self._llm = ChatOpenAI(model=settings.openai_model, api_key=settings.openai_api_key, temperature=0.2)
+        api_key = SecretStr(settings.openai_api_key) if settings.openai_api_key else None
+        self._llm = ChatOpenAI(model=settings.openai_model, api_key=api_key, temperature=0.2)
         self._embeddings = OpenAIEmbeddings(
             model=settings.openai_embedding_model,
-            api_key=settings.openai_api_key,
+            api_key=api_key,
         )
 
-    async def parse_risk_profile(self, answers: dict[str, str]) -> RiskProfile:
+    async def parse_risk_profile(self, answers: dict[str, str]) -> PartialRiskProfilePatch:
         prompt = (
-            "Parse user answers into JSON with fields: "
+            "Parse user answers into partial JSON with fields: "
             "investment_horizon (SHORT|MEDIUM|LONG), risk_tolerance (CONSERVATIVE|MODERATE|AGGRESSIVE), "
             "investment_goal (CAPITAL_PRESERVATION|INCOME|GROWTH|SPECULATION), monthly_contribution_usd (number), "
             "excluded_sectors (string array), preferred_geography (US|GLOBAL|EM|EUROPE), risk_score (1-10), "
-            "recommended_allocation (object with equities,bonds,cash,alternatives in %)."
+            "recommended_allocation (object with equities,bonds,cash,alternatives in %). "
+            "Return only values you can infer from the answers. For unknown fields return null and do not guess."
             f"\nAnswers: {answers}"
         )
-        response = await self._llm.ainvoke(prompt)
-        raw = response.content if isinstance(response.content, str) else json.dumps(response.content)
-        data = json.loads(raw)
-        return RiskProfile(
-            user_id=0,
-            investment_horizon=InvestmentHorizon(data["investment_horizon"]),
-            risk_tolerance=RiskTolerance(data["risk_tolerance"]),
-            investment_goal=InvestmentGoal(data["investment_goal"]),
-            monthly_contribution_usd=float(data["monthly_contribution_usd"]),
-            excluded_sectors=list(data.get("excluded_sectors", [])),
-            preferred_geography=PreferredGeography(data["preferred_geography"]),
-            risk_score=int(data["risk_score"]),
-            recommended_allocation={k: float(v) for k, v in data["recommended_allocation"].items()},
-        )
+        structured_llm = self._llm.with_structured_output(PartialRiskProfilePatch)
+        response = await structured_llm.ainvoke(prompt)
+        data: PartialRiskProfilePatch
+        if isinstance(response, PartialRiskProfilePatch):
+            data = response
+        elif isinstance(response, dict):
+            data = PartialRiskProfilePatch.model_validate(response)
+        else:
+            data = PartialRiskProfilePatch.model_validate(cast(Any, response))
+        return data
 
     async def generate_reasoning_step(self, system_prompt: str, user_prompt: str) -> str:
         response = await self._llm.ainvoke([

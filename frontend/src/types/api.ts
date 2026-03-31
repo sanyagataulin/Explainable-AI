@@ -21,7 +21,7 @@ export interface RiskProfile {
   excluded_sectors: string[];
   preferred_geography: PreferredGeography;
   risk_score: number;
-  recommended_allocation: Record<string, number>;
+  recommended_allocation?: Record<string, number>;
   updated_at: string | null;
 }
 

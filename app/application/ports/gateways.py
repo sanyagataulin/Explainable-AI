@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from app.domain.entities.models import Recommendation, RiskProfile
+from app.domain.entities.models import PartialRiskProfilePatch, Recommendation, RiskProfile
 
 
 class LLMGateway(ABC):
     @abstractmethod
-    async def parse_risk_profile(self, answers: dict[str, str]) -> RiskProfile:
+    async def parse_risk_profile(self, answers: dict[str, str]) -> PartialRiskProfilePatch:
         ...
 
     @abstractmethod

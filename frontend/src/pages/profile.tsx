@@ -21,6 +21,14 @@ const defaultPayload: PutRiskProfilePayload = {
   recommended_allocation: { equities: 60, bonds: 30, cash: 10 },
 };
 
+function formatAllocation(allocation: Record<string, number> | undefined) {
+  if (!allocation || Object.keys(allocation).length === 0) {
+    return "—";
+  }
+
+  return Object.entries(allocation).map(([key, value]) => `${key}: ${value}%`).join(", ");
+}
+
 export function ProfilePage({ userId }: Props) {
   const [mode, setMode] = useState<"view" | "edit" | "onboard">("view");
   const [form, setForm] = useState<PutRiskProfilePayload>(defaultPayload);
@@ -98,7 +106,7 @@ export function ProfilePage({ userId }: Props) {
             <span className="text-muted-foreground">Excluded sectors</span>
             <span>{profile.excluded_sectors.length ? profile.excluded_sectors.join(", ") : "—"}</span>
             <span className="text-muted-foreground">Allocation</span>
-            <span>{Object.entries(profile.recommended_allocation).map(([k, v]) => `${k}: ${v}%`).join(", ")}</span>
+            <span>{formatAllocation(profile.recommended_allocation)}</span>
           </CardContent>
         </Card>
       )}
@@ -180,6 +188,14 @@ export function ProfilePage({ userId }: Props) {
             <p className="text-sm text-muted-foreground">
               Введите свободные ответы на 6 вопросов (по одному на строку). LLM извлечёт профиль автоматически.
             </p>
+            <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
+              <li>Каков ваш инвестиционный горизонт? (например: до 1 года / 1–5 лет / более 5 лет)</li>
+              <li>Насколько вы терпимы к риску? (консервативный / умеренный / агрессивный)</li>
+              <li>Какова ваша цель инвестирования? (сохранение капитала / доход / рост / спекуляции)</li>
+              <li>Сколько вы готовы вносить ежемесячно? (сумма в USD)</li>
+              <li>Какую географию предпочитаете? (США / глобально / развивающиеся рынки / Европа)</li>
+              <li>Есть ли сектора, которые хотите исключить? (например: табак, оружие — или «нет»)</li>
+            </ol>
             <textarea
               className="w-full min-h-32 rounded-md border border-border px-3 py-2 text-sm"
               placeholder={"Вопрос 1: например, «инвестиционный горизонт — 5 лет»\nВопрос 2: ...\n..."}

@@ -1,10 +1,13 @@
+import type { ReactNode } from "react";
 import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Dashboard } from "./pages/dashboard";
 import { ProfilePage } from "./pages/profile";
 import { PortfolioPage } from "./pages/portfolio";
 import { RecommendationsPage } from "./pages/recommendations";
 import { DocumentsPage } from "./pages/documents";
 import { SearchPage } from "./pages/search";
+import { createConversation, getUsers } from "./lib/api";
 
 type Page = "dashboard" | "profile" | "portfolio" | "recommendations" | "documents" | "search";
 
@@ -22,7 +25,35 @@ export default function App() {
   const [userId, setUserId] = useState<number | null>(null);
   const [conversationId, setConversationId] = useState<number | null>(null);
 
-  const requireUser = (child: React.ReactNode) => {
+  const usersQuery = useQuery({
+    queryKey: ["users"],
+    queryFn: getUsers,
+  });
+
+  const switchUserMutation = useMutation({
+    mutationFn: async (nextUserId: number) => {
+      const conversation = await createConversation(nextUserId, "Main dialog");
+      return { userId: nextUserId, conversationId: conversation.conversation.id as number };
+    },
+    onSuccess: (result) => {
+      setUserId(result.userId);
+      setConversationId(result.conversationId);
+    },
+  });
+
+  const currentUser = usersQuery.data?.users.find((user) => user.id === userId) ?? null;
+
+  const handleUserChange = (nextUserId: string) => {
+    if (!nextUserId) {
+      setUserId(null);
+      setConversationId(null);
+      return;
+    }
+
+    switchUserMutation.mutate(Number(nextUserId));
+  };
+
+  const requireUser = (child: ReactNode) => {
     if (userId === null) {
       return (
         <div className="mx-auto max-w-7xl p-6">
@@ -53,11 +84,28 @@ export default function App() {
               {item.label}
             </button>
           ))}
-          {userId !== null && (
-            <span className="ml-auto text-xs text-muted-foreground">
-              user #{userId}
+          <div className="ml-auto flex items-center gap-2">
+            <select
+              className="min-w-56 rounded-md border border-border bg-white px-3 py-1.5 text-sm"
+              value={userId === null ? "" : String(userId)}
+              onChange={(e) => handleUserChange(e.target.value)}
+              disabled={usersQuery.isLoading || switchUserMutation.isPending}
+            >
+              <option value="">Select user</option>
+              {usersQuery.data?.users.map((user) => (
+                <option key={user.id} value={String(user.id)}>
+                  {user.email} (ID: {user.id})
+                </option>
+              ))}
+            </select>
+            <span className="text-xs text-muted-foreground">
+              {switchUserMutation.isPending
+                ? "Switching..."
+                : currentUser
+                  ? `${currentUser.email} • user #${currentUser.id}`
+                  : "No active user"}
             </span>
-          )}
+          </div>
         </div>
       </nav>
 

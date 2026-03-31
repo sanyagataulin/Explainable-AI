@@ -31,7 +31,7 @@ class PutRiskProfileRequest(BaseModel):
     excluded_sectors: list[str] = Field(default_factory=list)
     preferred_geography: PreferredGeography
     risk_score: int = Field(ge=1, le=10)
-    recommended_allocation: dict[str, float]
+    recommended_allocation: dict[str, float] | None = None
 
 
 class RiskProfileResponse(BaseModel):

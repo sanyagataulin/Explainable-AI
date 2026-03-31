@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.domain.entities.models import PortfolioHolding, RiskProfile
+from app.domain.entities.models import PortfolioHolding, RiskProfile, build_default_allocation
 from app.presentation.api.deps import get_request_container
 from app.presentation.schemas.users import (
     BuildRiskProfileRequest,
@@ -48,8 +48,9 @@ async def update_profile(
         profile = await c.onboard.build_risk_profile(user_id=user_id, answers=payload.answers)
         return RiskProfileResponse(profile=profile)
 
+    allocation = payload.recommended_allocation or build_default_allocation(payload.risk_tolerance)
     profile = await c.onboard.profile_repo.upsert_risk_profile(
-        RiskProfile(user_id=user_id, **payload.model_dump())
+        RiskProfile(user_id=user_id, **payload.model_dump(exclude={"recommended_allocation"}), recommended_allocation=allocation)
     )
     return RiskProfileResponse(profile=profile)
 

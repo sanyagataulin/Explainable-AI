@@ -37,6 +37,25 @@ class RiskProfile(BaseModel):
     updated_at: datetime | None = None
 
 
+class PartialRiskProfilePatch(BaseModel):
+    investment_horizon: InvestmentHorizon | None = None
+    risk_tolerance: RiskTolerance | None = None
+    investment_goal: InvestmentGoal | None = None
+    monthly_contribution_usd: float | None = None
+    excluded_sectors: list[str] | None = None
+    preferred_geography: PreferredGeography | None = None
+    risk_score: int | None = Field(default=None, ge=1, le=10)
+    recommended_allocation: dict[str, float] | None = None
+
+
+def build_default_allocation(risk_tolerance: RiskTolerance) -> dict[str, float]:
+    if risk_tolerance == RiskTolerance.CONSERVATIVE:
+        return {"equities": 30.0, "bonds": 50.0, "cash": 20.0}
+    if risk_tolerance == RiskTolerance.AGGRESSIVE:
+        return {"equities": 80.0, "bonds": 10.0, "cash": 10.0}
+    return {"equities": 60.0, "bonds": 30.0, "cash": 10.0}
+
+
 class Conversation(BaseModel):
     id: int | None = None
     user_id: int

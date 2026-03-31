@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import {
   createConversation,
   createUser,
   getRecommendations,
-  getUsers,
   openReasoningStream,
   sendMessage,
   updateProfile,
@@ -20,26 +19,11 @@ interface Props {
 }
 
 export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
+  const queryClient = useQueryClient();
   const [email, setEmail] = useState("investor@example.com");
   const [question, setQuestion] = useState("Оцени Apple для моего портфеля");
   const [steps, setSteps] = useState<ReasoningStep[]>([]);
   const [streamError, setStreamError] = useState<string | null>(null);
-  const [selectedExistingUserId, setSelectedExistingUserId] = useState<string>("");
-
-  const usersQuery = useQuery({
-    queryKey: ["users"],
-    queryFn: getUsers,
-  });
-
-  const selectMutation = useMutation({
-    mutationFn: async (existingUserId: number) => {
-      const conversation = await createConversation(existingUserId, "Main dialog");
-      return { userId: existingUserId, conversationId: conversation.conversation.id as number };
-    },
-    onSuccess: (result) => {
-      onSessionCreated(result.userId, result.conversationId);
-    },
-  });
 
   const setupMutation = useMutation({
     mutationFn: async () => {
@@ -58,6 +42,7 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
       return { userId: user.user.id as number, conversationId: conversation.conversation.id as number };
     },
     onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["users"] });
       onSessionCreated(result.userId, result.conversationId);
     },
   });
@@ -134,33 +119,7 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
             <CardTitle>Session Setup</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {usersQuery.data?.users && usersQuery.data.users.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Select existing user</p>
-                <div className="flex gap-2">
-                  <select
-                    className="flex-1 rounded-md border border-border bg-white px-3 py-2 text-sm"
-                    value={selectedExistingUserId}
-                    onChange={(e) => setSelectedExistingUserId(e.target.value)}
-                  >
-                    <option value="">-- choose user --</option>
-                    {usersQuery.data.users.map((u) => (
-                      <option key={u.id} value={String(u.id)}>
-                        {u.email} (ID: {u.id})
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    onClick={() => selectMutation.mutate(Number(selectedExistingUserId))}
-                    disabled={!selectedExistingUserId || selectMutation.isPending}
-                  >
-                    {selectMutation.isPending ? "Loading..." : "Use"}
-                  </Button>
-                </div>
-                <hr className="border-border" />
-              </div>
-            )}
-            <p className="text-xs font-medium text-muted-foreground">Or create new user</p>
+            <p className="text-xs font-medium text-muted-foreground">Create new user</p>
             <input
               className="w-full rounded-md border border-border bg-white px-3 py-2"
               value={email}
