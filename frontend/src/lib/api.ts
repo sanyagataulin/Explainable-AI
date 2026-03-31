@@ -140,9 +140,4 @@ export async function uploadDocument(company: string, file: File) {
   return handleResponse<{ message: string }>(res);
 }
 
-// ── Search ────────────────────────────────────────────────────────────────────
 
-export async function searchMessages(userId: number, query: string) {
-  const res = await fetch(`${API_BASE}/api/search/messages?user_id=${userId}&q=${encodeURIComponent(query)}`);
-  return handleResponse<{ messages: Message[] }>(res);
-}

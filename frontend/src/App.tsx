@@ -6,10 +6,9 @@ import { ProfilePage } from "./pages/profile";
 import { PortfolioPage } from "./pages/portfolio";
 import { RecommendationsPage } from "./pages/recommendations";
 import { DocumentsPage } from "./pages/documents";
-import { SearchPage } from "./pages/search";
 import { createConversation, getUsers } from "./lib/api";
 
-type Page = "dashboard" | "profile" | "portfolio" | "recommendations" | "documents" | "search";
+type Page = "dashboard" | "profile" | "portfolio" | "recommendations" | "documents";
 
 const NAV: { id: Page; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
@@ -17,7 +16,6 @@ const NAV: { id: Page; label: string }[] = [
   { id: "portfolio", label: "Portfolio" },
   { id: "recommendations", label: "Recommendations" },
   { id: "documents", label: "Documents" },
-  { id: "search", label: "Search" },
 ];
 
 export default function App() {
@@ -121,7 +119,6 @@ export default function App() {
         {page === "portfolio" && requireUser(<PortfolioPage userId={userId!} />)}
         {page === "recommendations" && requireUser(<RecommendationsPage userId={userId!} />)}
         {page === "documents" && <DocumentsPage />}
-        {page === "search" && requireUser(<SearchPage userId={userId!} />)}
       </main>
     </div>
   );
