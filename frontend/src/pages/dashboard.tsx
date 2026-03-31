@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import ReactMarkdown from "react-markdown";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import {
@@ -14,7 +15,7 @@ import { useTranslation } from "../i18n";
 import type { ReasoningStep, Recommendation } from "../types/api";
 
 // Helper to translate recommendation action
-function getActionLabel(action: Recommendation["action"], t: ReturnType<typeof useTranslation>["t"]): string {
+function getActionLabel(action: Recommendation["action"]): string {
   const actionMap: Record<Recommendation["action"], string> = {
     BUY: "ПОКУПАТЬ",
     SELL: "ПРОДАВАТЬ",
@@ -190,8 +191,22 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
               ) : (
                 steps.map((step, idx) => (
                   <div key={`${step.type}-${idx}`} className="rounded-lg border border-border bg-white p-3">
-                    <p className="text-xs font-semibold text-primary">{t.reasoningStepTypes[step.type as keyof typeof t.reasoningStepTypes] || step.type}</p>
-                    <p className="text-sm leading-relaxed">{step.content}</p>
+                    <p className="text-xs font-semibold text-primary mb-2">{t.reasoningStepTypes[step.type as keyof typeof t.reasoningStepTypes] || step.type}</p>
+                    <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert
+                      [&_p]:m-0 [&_p]:mb-2 [&_p:last-child]:mb-0
+                      [&_ul]:m-0 [&_ul]:mb-2 [&_ul]:ml-4 [&_li]:mb-1
+                      [&_ol]:m-0 [&_ol]:mb-2 [&_ol]:ml-4 [&_li]:mb-1
+                      [&_strong]:font-semibold [&_em]:italic
+                      [&_code]:bg-gray-100 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono
+                      [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-3 [&_blockquote]:py-1 [&_blockquote]:text-gray-600
+                      [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2
+                      [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-1.5
+                      [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mb-1
+                      [&_table]:border-collapse [&_table]:w-full [&_table]:mb-2
+                      [&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:bg-gray-50
+                      [&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1">
+                      <ReactMarkdown>{step.content}</ReactMarkdown>
+                    </div>
                   </div>
                 ))
               )}
@@ -205,17 +220,67 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
           <CardHeader>
             <CardTitle>{t.latestRecommendation.title}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="space-y-3">
             {latestRecommendation ? (
               <>
-                <p>
-                  {latestRecommendation.company_name} ({latestRecommendation.ticker})
-                </p>
-                <p>
-                  {t.latestRecommendation.action}: <b>{getActionLabel(latestRecommendation.action, t)}</b> | {t.latestRecommendation.conviction}: <b>{getConvictionLabel(latestRecommendation.conviction)}</b>
-                </p>
-                <p>{t.latestRecommendation.weight}: {latestRecommendation.suggested_weight_pct}%</p>
-                <p className="text-xs text-muted-foreground">{latestRecommendation.disclaimer}</p>
+                <div className="pb-3 border-b border-border">
+                  <p className="font-semibold text-base">
+                    {latestRecommendation.company_name} ({latestRecommendation.ticker})
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">{t.latestRecommendation.action}</p>
+                    <p className="font-semibold text-primary">{getActionLabel(latestRecommendation.action)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">{t.latestRecommendation.conviction}</p>
+                    <p className="font-semibold text-primary">{getConvictionLabel(latestRecommendation.conviction)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">{t.latestRecommendation.weight}</p>
+                    <p className="font-semibold text-primary">{latestRecommendation.suggested_weight_pct}%</p>
+                  </div>
+                </div>
+
+                {latestRecommendation.risks && latestRecommendation.risks.length > 0 && (
+                  <div className="pt-3 border-t border-border">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">Риски:</p>
+                    <ul className="text-xs space-y-1 ml-4">
+                      {latestRecommendation.risks.map((risk, idx) => (
+                        <li key={idx} className="list-disc text-sm">
+                          <div className="prose prose-sm max-w-none dark:prose-invert
+                            [&_p]:m-0 [&_strong]:font-semibold [&_em]:italic
+                            [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs">
+                            <ReactMarkdown>{risk}</ReactMarkdown>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {latestRecommendation.alternatives && latestRecommendation.alternatives.length > 0 && (
+                  <div className="pt-3 border-t border-border">
+                    <p className="text-xs font-semibold text-muted-foreground mb-2">Альтернативы:</p>
+                    <ul className="text-xs space-y-1 ml-4">
+                      {latestRecommendation.alternatives.map((alt, idx) => (
+                        <li key={idx} className="list-disc text-sm">
+                          <div className="prose prose-sm max-w-none dark:prose-invert
+                            [&_p]:m-0 [&_strong]:font-semibold [&_em]:italic
+                            [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs">
+                            <ReactMarkdown>{alt}</ReactMarkdown>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="pt-3 border-t border-border">
+                  <p className="text-xs text-muted-foreground leading-relaxed">{latestRecommendation.disclaimer}</p>
+                </div>
               </>
             ) : (
               <p className="text-muted-foreground">{t.latestRecommendation.noRecommendations}</p>
