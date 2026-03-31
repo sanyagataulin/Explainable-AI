@@ -10,7 +10,30 @@ import {
   sendMessage,
   updateProfile,
 } from "../lib/api";
-import type { ReasoningStep } from "../types/api";
+import { useTranslation } from "../i18n";
+import type { ReasoningStep, Recommendation } from "../types/api";
+
+// Helper to translate recommendation action
+function getActionLabel(action: Recommendation["action"], t: ReturnType<typeof useTranslation>["t"]): string {
+  const actionMap: Record<Recommendation["action"], string> = {
+    BUY: "ПОКУПАТЬ",
+    SELL: "ПРОДАВАТЬ",
+    HOLD: "ДЕРЖАТЬ",
+    AVOID: "ИЗБЕГАТЬ",
+    WATCHLIST: "НАБЛЮДЕНИЕ",
+  };
+  return actionMap[action] || action;
+}
+
+// Helper to translate conviction level
+function getConvictionLabel(conviction: Recommendation["conviction"]): string {
+  const convictionMap: Record<Recommendation["conviction"], string> = {
+    LOW: "Низкая",
+    MEDIUM: "Средняя",
+    HIGH: "Высокая",
+  };
+  return convictionMap[conviction] || conviction;
+}
 
 interface Props {
   userId: number | null;
@@ -19,6 +42,7 @@ interface Props {
 }
 
 export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("investor@example.com");
   const [question, setQuestion] = useState("Оцени Apple для моего портфеля");
@@ -56,7 +80,7 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
   const askMutation = useMutation({
     mutationFn: async () => {
       if (!userId || !conversationId) {
-        throw new Error("Create session first");
+        throw new Error(t.errors.sessionNotCreated);
       }
       setSteps([]);
       setStreamError(null);
@@ -64,9 +88,9 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
       await new Promise<void>((resolve, reject) => {
         const source = openReasoningStream(conversationId, userId, question);
         const timeoutId = window.setTimeout(() => {
-          setStreamError("Streaming timeout");
+          setStreamError(t.chainOfThought.timeout);
           source.close();
-          reject(new Error("Streaming timeout"));
+          reject(new Error(t.chainOfThought.timeout));
         }, 60000);
 
         const closeStream = () => {
@@ -81,9 +105,9 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
 
         source.addEventListener("stream_error", (event) => {
           const payload = JSON.parse((event as MessageEvent).data) as { message?: string };
-          setStreamError(payload.message ?? "Streaming failed");
+          setStreamError(payload.message ?? t.errors.streamingFailed);
           closeStream();
-          reject(new Error(payload.message ?? "Streaming failed"));
+          reject(new Error(payload.message ?? t.errors.streamingFailed));
         });
 
         source.addEventListener("recommendation_saved", () => {
@@ -93,9 +117,9 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
         });
 
         source.onerror = () => {
-          setStreamError("Streaming connection error");
+          setStreamError(t.chainOfThought.connectionError);
           closeStream();
-          reject(new Error("Streaming connection error"));
+          reject(new Error(t.chainOfThought.connectionError));
         };
       });
     },
@@ -109,44 +133,45 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6">
       <header className="fade-up">
-        <h1 className="text-4xl font-bold">Explainable Investment Advisor</h1>
-        <p className="mt-2 text-muted-foreground">Macro to sector to company reasoning in real time.</p>
+        <h1 className="text-4xl font-bold">{t.header.title}</h1>
+        <p className="mt-2 text-muted-foreground">{t.header.subtitle}</p>
       </header>
 
       <section className="grid gap-6 md:grid-cols-2">
         <Card className="fade-up">
           <CardHeader>
-            <CardTitle>Session Setup</CardTitle>
+            <CardTitle>{t.sessionSetup.title}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-xs font-medium text-muted-foreground">Create new user</p>
+            <p className="text-xs font-medium text-muted-foreground">{t.sessionSetup.createNewUser}</p>
             <input
               className="w-full rounded-md border border-border bg-white px-3 py-2"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email"
+              placeholder={t.sessionSetup.emailPlaceholder}
             />
             <Button onClick={() => setupMutation.mutate()} disabled={setupMutation.isPending}>
-              {setupMutation.isPending ? "Creating..." : "Create User + Conversation"}
+              {setupMutation.isPending ? t.sessionSetup.buttonCreating : t.sessionSetup.buttonCreate}
             </Button>
             <p className="text-sm text-muted-foreground">
-              User ID: {userId ?? "-"}, Conversation ID: {conversationId ?? "-"}
+              {t.common.userId}: {userId ?? "-"}, {t.common.conversationId}: {conversationId ?? "-"}
             </p>
           </CardContent>
         </Card>
 
         <Card className="fade-up" style={{ animationDelay: "120ms" }}>
           <CardHeader>
-            <CardTitle>Ask Investment Question</CardTitle>
+            <CardTitle>{t.askQuestion.title}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <textarea
               className="min-h-24 w-full rounded-md border border-border bg-white px-3 py-2"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
+              placeholder={t.askQuestion.questionPlaceholder}
             />
             <Button onClick={() => askMutation.mutate()} disabled={askMutation.isPending || !conversationId}>
-              {askMutation.isPending ? "Streaming..." : "Run Explainable Analysis"}
+              {askMutation.isPending ? t.askQuestion.buttonStreaming : t.askQuestion.buttonRun}
             </Button>
           </CardContent>
         </Card>
@@ -155,17 +180,17 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
       <section>
         <Card>
           <CardHeader>
-            <CardTitle>Chain of Thought Stream</CardTitle>
+            <CardTitle>{t.chainOfThought.title}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {streamError ? <p className="text-sm text-red-600">{streamError}</p> : null}
               {steps.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No steps yet.</p>
+                <p className="text-sm text-muted-foreground">{t.chainOfThought.noSteps}</p>
               ) : (
                 steps.map((step, idx) => (
                   <div key={`${step.type}-${idx}`} className="rounded-lg border border-border bg-white p-3">
-                    <p className="text-xs font-semibold text-primary">{step.type}</p>
+                    <p className="text-xs font-semibold text-primary">{t.reasoningStepTypes[step.type as keyof typeof t.reasoningStepTypes] || step.type}</p>
                     <p className="text-sm leading-relaxed">{step.content}</p>
                   </div>
                 ))
@@ -178,7 +203,7 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
       <section>
         <Card>
           <CardHeader>
-            <CardTitle>Latest Recommendation</CardTitle>
+            <CardTitle>{t.latestRecommendation.title}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {latestRecommendation ? (
@@ -187,13 +212,13 @@ export function Dashboard({ userId, conversationId, onSessionCreated }: Props) {
                   {latestRecommendation.company_name} ({latestRecommendation.ticker})
                 </p>
                 <p>
-                  Action: <b>{latestRecommendation.action}</b> | Conviction: <b>{latestRecommendation.conviction}</b>
+                  {t.latestRecommendation.action}: <b>{getActionLabel(latestRecommendation.action, t)}</b> | {t.latestRecommendation.conviction}: <b>{getConvictionLabel(latestRecommendation.conviction)}</b>
                 </p>
-                <p>Weight: {latestRecommendation.suggested_weight_pct}%</p>
+                <p>{t.latestRecommendation.weight}: {latestRecommendation.suggested_weight_pct}%</p>
                 <p className="text-xs text-muted-foreground">{latestRecommendation.disclaimer}</p>
               </>
             ) : (
-              <p className="text-muted-foreground">No saved recommendations yet.</p>
+              <p className="text-muted-foreground">{t.latestRecommendation.noRecommendations}</p>
             )}
           </CardContent>
         </Card>

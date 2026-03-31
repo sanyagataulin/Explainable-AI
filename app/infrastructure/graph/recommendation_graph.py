@@ -8,6 +8,12 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from app.application.ports.gateways import LLMGateway, NewsGateway
+from app.core.i18n_ru import (
+    COMPANY_ANALYSIS_SYSTEM_PROMPT,
+    MACRO_ANALYSIS_SYSTEM_PROMPT,
+    RECOMMENDATION_SYNTHESIS_SYSTEM_PROMPT,
+    SECTOR_ANALYSIS_SYSTEM_PROMPT,
+)
 from app.core.settings import Settings
 from app.domain.entities.enums import ReasoningType
 from app.domain.entities.models import Message, PortfolioHolding, ReasoningStep, RiskProfile
@@ -67,13 +73,13 @@ class RecommendationGraphEngine:
 
     async def _macro_node(self, state: GraphState) -> GraphState:
         text = await self._llm_gateway.generate_reasoning_step(
-            system_prompt=f"You are macro analyst. User risk profile: {state['profile'].model_dump()}",
-            user_prompt=f"Evaluate rates, inflation, recession impact for question: {state['question']}",
+            system_prompt=MACRO_ANALYSIS_SYSTEM_PROMPT,
+            user_prompt=f"Оцени влияние макроэкономической ситуации на инвестицию: {state['question']}",
         )
         step = ReasoningStep(
             type=ReasoningType.MACRO,
             content=text,
-            metadata={"implication": "macro to asset classes"},
+            metadata={"implication": "влияние макроэкономики на активы"},
         )
         state["steps"].append(step)
         return state
@@ -82,14 +88,14 @@ class RecommendationGraphEngine:
         news = await self._news_gateway.search_finance_news(f"{state['sector']} sector outlook latest")
         synopsis = "\n".join(item["content"] for item in news if item.get("content"))
         text = await self._llm_gateway.generate_reasoning_step(
-            system_prompt=f"Analyze sector sentiment for profile {state['profile'].model_dump()}",
-            user_prompt=f"Sector: {state['sector']} news:\n{synopsis}",
+            system_prompt=SECTOR_ANALYSIS_SYSTEM_PROMPT,
+            user_prompt=f"Сектор: {state['sector']}\nПоследние новости и события:\n{synopsis}",
         )
         step = ReasoningStep(
             type=ReasoningType.SECTOR,
             content=text,
             sources=[{"title": n["title"], "url": n["url"]} for n in news],
-            metadata={"sentiment": "derived"},
+            metadata={"sentiment": "выведено из новостей"},
         )
         state["steps"].append(step)
         return state
@@ -101,10 +107,12 @@ class RecommendationGraphEngine:
         )
         doc_context = "\n".join(item["content"] for item in docs)
         text = await self._llm_gateway.generate_reasoning_step(
-            system_prompt=f"Company analyst. User profile: {state['profile'].model_dump()}",
+            system_prompt=COMPANY_ANALYSIS_SYSTEM_PROMPT,
             user_prompt=(
-                f"Question: {state['question']}\nMetrics:{metrics}\nDocs:{doc_context}"
-                f"\nCurrent portfolio: {[h.model_dump() for h in state['portfolio']]}"
+                f"Вопрос: {state['question']}\n"
+                f"Финансовые показатели: {metrics}\n"
+                f"Документация: {doc_context}\n"
+                f"Текущий портфель: {[h.model_dump() for h in state['portfolio']]}"
             ),
         )
         step = ReasoningStep(
@@ -126,10 +134,11 @@ class RecommendationGraphEngine:
 
     async def _recommendation_node(self, state: GraphState) -> GraphState:
         text = await self._llm_gateway.generate_reasoning_step(
-            system_prompt=f"Generate final recommendation for profile {state['profile'].model_dump()}",
+            system_prompt=RECOMMENDATION_SYNTHESIS_SYSTEM_PROMPT,
             user_prompt=(
-                f"Use prior steps: {[s.model_dump() for s in state['steps']]}"
-                f" and rebalance around portfolio {[h.model_dump() for h in state['portfolio']]}"
+                f"На основе всех анализов подготовь финальную рекомендацию.\n"
+                f"Все шаги анализа: {[s.model_dump() for s in state['steps']]}\n"
+                f"Текущий портфель: {[h.model_dump() for h in state['portfolio']]}"
             ),
         )
         step = ReasoningStep(

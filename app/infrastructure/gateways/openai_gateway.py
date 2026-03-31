@@ -69,8 +69,13 @@ class OpenAIGateway(LLMGateway, EmbeddingGateway):
         steps: list[dict[str, str]],
     ) -> Recommendation:
         prompt = (
-            "Return strict JSON with fields action, conviction, suggested_weight_pct, risks, alternatives, time_horizon. "
-            f"Risk profile: {risk_profile.model_dump()} Steps: {steps}"
+            "Верни строгий JSON с полями action, conviction, suggested_weight_pct, risks, alternatives, time_horizon. "
+            "action должно быть одним из: BUY, HOLD, SELL, AVOID, WATCHLIST. "
+            "conviction должно быть одним из: LOW, MEDIUM, HIGH. "
+            "risks и alternatives должны быть массивами строк на РУССКОМ языке. "
+            "Всё в кодировке UTF-8. "
+            f"Профиль риска: {risk_profile.model_dump()} "
+            f"Этапы анализа: {steps}"
         )
         structured_llm = self._llm.with_structured_output(RecommendationSynthesisResult)
         response = await structured_llm.ainvoke(prompt)
